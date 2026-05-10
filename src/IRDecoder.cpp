@@ -33,13 +33,13 @@ void IRDecoder::update() {
         rawIndex = 0;
         interrupts();
 
-        if (decodeNEC()) {
+        if (decodeNEC(data, count)) {
             codeReady = true;
         }
     }
 }
 
-bool IRDecoder::decodeNEC() {
+bool IRDecoder::decodeNEC(uint16_t* data, uint8_t count) {
     if (count < 3) return false;
 
     // search for the start pulse pair
@@ -115,5 +115,4 @@ uint32_t IRDecoder::getRawCode() {
 
 void IRDecoder::resume() {
     codeReady = false;
-    // buffer already cleared in update()
 }

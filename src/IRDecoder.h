@@ -14,7 +14,8 @@ public:
     static void IRAM_ATTR isrHandler();
 
 private:
-    bool decodeNEC();
+    bool decodeNEC(uint16_t* data, uint8_t count);   // <-- now takes parameters
+
     static IRDecoder* instance;
 
     uint8_t irPin;
