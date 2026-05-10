@@ -21,4 +21,12 @@ jobs:
         run: pip install --upgrade platformio
 
       - name: Build PlatformIO project
-        run: pio run               # 该命令会根据项目根目录下的platformio.ini文件进行构建
+        run: pio run
+
+      - name: Upload firmware artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: firmware
+          path: |
+            .pio/build/*/firmware.bin
+            .pio/build/*/firmware.elf
