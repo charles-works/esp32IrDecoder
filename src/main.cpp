@@ -18,11 +18,14 @@ void loop() {
     irDecoder.update();
 
     if (irDecoder.available()) {
-        uint16_t addr = irDecoder.getAddress();
-        uint8_t  cmd  = irDecoder.getCommand();
+        uint32_t raw = irDecoder.getRawCode();
+        uint8_t addr    = raw & 0xFF;
+        uint8_t addrInv = (raw >> 8)  & 0xFF;
+        uint8_t cmd     = (raw >> 16) & 0xFF;
+        uint8_t cmdInv  = (raw >> 24) & 0xFF;
 
-        Serial.printf("New code -> Addr: 0x%04X, Cmd: 0x%02X\n", addr, cmd);
-        displayManager.showCode(addr, cmd);
+        Serial.printf("NEC: A:%02X %02X  C:%02X %02X\n", addr, addrInv, cmd, cmdInv);
+        displayManager.showCode(addr, addrInv, cmd, cmdInv);
         irDecoder.resume();
     }
 

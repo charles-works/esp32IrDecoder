@@ -6,7 +6,7 @@ class DisplayManager {
 public:
     void begin();
     void showWaiting();
-    void showCode(uint16_t addr, uint8_t cmd);
+    void showCode(uint8_t addr, uint8_t addrInv, uint8_t cmd, uint8_t cmdInv);
     void update();   // must be called in loop; handles 1-minute timeout
     bool isShowingCode();
 
@@ -17,6 +17,4 @@ private:
 
     bool     showing      = false;
     unsigned long lastShowTime = 0;
-    uint16_t currentAddr  = 0;
-    uint8_t  currentCmd   = 0;
 };

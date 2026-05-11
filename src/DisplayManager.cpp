@@ -2,9 +2,8 @@
 #include <Wire.h>
 
 void DisplayManager::begin() {
-    // Explicitly initialise I2C with the pins defined in config.h
     Wire.begin(OLED_SDA, OLED_SCL);
-    u8g2.setI2CAddress(OLED_ADDR << 1);  // U8g2 expects 8-bit shifted address
+    u8g2.setI2CAddress(OLED_ADDR << 1);
     u8g2.begin();
     showWaiting();
 }
@@ -20,21 +19,21 @@ void DisplayManager::showWaiting() {
     u8g2.sendBuffer();
 }
 
-void DisplayManager::showCode(uint16_t addr, uint8_t cmd) {
+void DisplayManager::showCode(uint8_t addr, uint8_t addrInv, uint8_t cmd, uint8_t cmdInv) {
     showing = true;
     lastShowTime = millis();
-    currentAddr  = addr;
-    currentCmd   = cmd;
 
     char buf[20];
     u8g2.clearBuffer();
     u8g2.setFont(u8g2_font_ncenB14_tr);
 
-    snprintf(buf, sizeof(buf), "Addr:0x%04X", addr);
+    // Line 1: address original + inverse
+    snprintf(buf, sizeof(buf), "A:%02X %02X", addr, addrInv);
     u8g2.setCursor(0, 24);
     u8g2.print(buf);
 
-    snprintf(buf, sizeof(buf), "Cmd: 0x%02X", cmd);
+    // Line 2: command original + inverse
+    snprintf(buf, sizeof(buf), "C:%02X %02X", cmd, cmdInv);
     u8g2.setCursor(0, 48);
     u8g2.print(buf);
 
