@@ -1,21 +1,23 @@
 # ESP32-C3 NEC Infrared Decoder with SSD1315 OLED
 
-A modular, low‑power NEC infrared remote control decoder for the **ESP32‑C3 SuperMini**. The decoded 16‑bit address and 8‑bit command are shown in hexadecimal on a 0.96‑inch I²C OLED display (SSD1315 driver).
+A modular, low‑power NEC infrared remote control decoder for the **ESP32‑C3 SuperMini**. The decoded raw address and command bytes (original + inverse) are shown in hexadecimal on a 0.96‑inch I²C OLED display (SSD1315 driver).
 
 ## Features
 
 - **NEC protocol decoding** – Supports both standard 8‑bit address and extended 16‑bit address, with complement verification.
-- **Clean OLED output** – The screen shows “Waiting for IR…” until a key is pressed, then displays `Addr: 0xXXXX` and `Cmd: 0xYY` for 1 minute (or until a new code arrives).
-- **Accurate timing** – Interrupt‑driven pulse capture ensures reliable decoding of most consumer remotes.
+- **Raw byte display** – OLED shows address and command as original + inverse byte pairs (e.g. `A:00 FF` / `C:0C F3`), no `0x` prefix, matching what the NEC frame actually transmits.
+- **Timeout‑based frame capture** – Edge durations are accumulated in the ISR buffer and only decoded after a 110 ms silence window, ensuring complete NEC frame capture.
+- **Serial debug output** – Decoded bytes and frame edge count are printed to the serial monitor for debugging.
+- **Accurate timing** – Interrupt‑driven pulse capture with glitch filtering (sub‑100 µs) ensures reliable decoding of most consumer remotes.
 - **Modular design** – Separate classes for IR decoding and display management make the code easy to extend.
-- **SSD1315 native support** – Uses the U8g2 library with proper charge‑pump and COM hardware initialisation.
+- **SSD1315 native support** – Uses the U8g2 library with explicit I²C pin configuration from `config.h`.
 
 ## Hardware Requirements
 
 - ESP32‑C3 SuperMini (or compatible board)
-- 1838 infrared receiver (38 kHz, NEC compatible)
+- 1838 infrared receiver (38 kHz, NEC compatible)
 - 0.96″ I²C OLED module (128×64 pixels, SSD1315 controller)
-- Jumper wires, breadboard, 3.3 V power supply
+- Jumper wires, breadboard, 3.3 V power supply
 
 ### Wiring
 
@@ -23,13 +25,13 @@ A modular, low‑power NEC infrared remote control decoder for the **ESP32‑C3 
 |-------------|-------------------|
 | SDA         | GPIO 8            |
 | SCL         | GPIO 9            |
-| VCC         | 3.3 V             |
+| VCC         | 3.3 V             |
 | GND         | GND               |
 
 | 1838 IR Receiver | ESP32‑C3 SuperMini |
 |------------------|-------------------|
 | OUT              | GPIO 4            |
-| VCC              | 3.3 V             |
+| VCC              | 3.3 V             |
 | GND              | GND               |
 
 > **Note:** The OLED I²C address is usually **0x3C**. If your display uses **0x3D** (SA0 pin pulled HIGH), change `OLED_ADDR` in `src/config.h`.
@@ -46,7 +48,7 @@ A modular, low‑power NEC infrared remote control decoder for the **ESP32‑C3 
 1. **Clone the repository:**
    ```bash
    git clone <your-repo-url>
-   cd esp32-nec-ir-decoder
+   cd esp32IrDecoder
    ```
 
 2. **Open in VS Code** with the PlatformIO extension installed.
@@ -62,7 +64,7 @@ A modular, low‑power NEC infrared remote control decoder for the **ESP32‑C3 
    ```bash
    pio device monitor -b 115200
    ```
-   Decoded codes are also printed to the serial monitor.
+   Decoded codes are printed to the serial monitor in the same format as the OLED.
 
 ## Configuration
 
@@ -78,15 +80,26 @@ All settings are in `src/config.h`:
 
 ## Usage
 
-1. Power up the board. The OLED displays **“Waiting for IR…”**.
+1. Power up the board. The OLED displays **"Waiting for IR…"**.
 2. Point an NEC‑compatible remote at the receiver and press a button.
-3. The screen immediately shows the address and command, e.g.:
+3. The screen shows the raw original + inverse byte pairs for address and command:
    ```
-   Addr:0x00FF
-   Cmd: 0x0C
+   A:00 FF
+   C:0C F3
+   ```
+   The serial monitor prints the same:
+   ```
+   NEC: A:00 FF  C:0C F3
    ```
 4. After 1 minute of inactivity, the display returns to waiting mode.
-5. Pressing another key instantly refreshes the code and resets the timer.
+5. Pressing another key instantly refreshes the display and resets the timer.
+
+### How to read the display
+
+| Label | Meaning | Example |
+|-------|---------|---------|
+| `A:XX XX` | Address original + inverse byte | `A:00 FF` means address 0x00, inverse 0xFF (standard 8‑bit address) |
+| `C:XX XX` | Command original + inverse byte | `C:0C F3` means command 0x0C, inverse 0xF3 |
 
 ## Project Structure
 
@@ -94,6 +107,7 @@ All settings are in `src/config.h`:
 .
 ├── platformio.ini
 ├── README.md
+├── README_CN.md
 └── src/
     ├── config.h
     ├── IRDecoder.h
@@ -103,17 +117,17 @@ All settings are in `src/config.h`:
     └── main.cpp
 ```
 
-- **IRDecoder** – Captures pulse widths via pin‑change interrupt, recognises NEC start/bit patterns, and extracts address & command.
-- **DisplayManager** – Initialises the SSD1315 (via U8g2), handles screen updates and the 1‑minute timeout.
+- **IRDecoder** – Captures pulse widths via pin‑change interrupt into a 128‑entry buffer. After a 110 ms silence window (indicating the NEC frame is complete), it snapshots the buffer and decodes the NEC leader + 32 data bits.
+- **DisplayManager** – Initialises the SSD1315 (via U8g2 with explicit I²C pins), handles screen updates and the 1‑minute timeout.
 - **main.cpp** – Main loop that links both modules.
 
 ## Troubleshooting
 
 | Problem                | Possible solutions                                                                 |
 |------------------------|------------------------------------------------------------------------------------|
-| No OLED output         | Check I²C wiring. Try changing `OLED_ADDR` to 0x3D. Ensure the display works at 3.3 V. |
-| IR not decoding        | Verify 1838 power (3.3 V) and signal connection. Most modules include a pull‑up.  |
-| Wrong or unstable codes| Reduce ambient IR interference (e.g., fluorescent lights). Test in a normally lit room. |
+| No OLED output         | Check I²C wiring. Try changing `OLED_ADDR` to 0x3D. Ensure the display works at 3.3 V. |
+| IR not decoding        | Open the serial monitor (`pio device monitor -b 115200`). If you see `frame captured: 0 edges`, check that the 1838 VCC is 3.3 V and the OUT pin is connected to GPIO 4. If edges are captured but decode fails, ambient IR interference (fluorescent lights) may be the cause. |
+| Partial or missing bytes | Some remotes use extended 16‑bit addresses. The decoder handles both formats; the raw bytes shown will tell you exactly what was received. |
 
 ## License
 
