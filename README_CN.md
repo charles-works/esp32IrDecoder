@@ -129,6 +129,83 @@
 | 无法解码红外信号        | 打开串口监视器（`pio device monitor -b 115200`）。若看到 `frame captured: 0 edges`，检查 1838 VCC 是否 3.3 V、OUT 是否接 GPIO 4。若有边沿但解码失败，可能是环境红外干扰（日光灯）。 |
 | 接收到的字节不完整或异常 | 部分遥控器使用扩展 16 位地址。解码器兼容两种格式；显示的原始字节可精确反映实际接收到的内容。 |
 
+
+## 固件文件说明
+
+项目编译后会生成两个固件文件：
+
+| 文件 | 路径 | 说明 |
+|------|------|------|
+| `firmware.bin` | `.pio/build/esp32-c3-supermini/firmware.bin` | 主固件二进制文件，用于烧录到 ESP32-C3 的 Flash 中。这是实际运行的程序。 |
+| `firmware.elf` | `.pio/build/esp32-c3-supermini/firmware.elf` | ELF 格式的完整固件（含符号表和调试信息），体积较大。用于 GDB 调试、崩溃栈回溯（addr2line）等高级调试场景，**不能直接用于普通烧录**。 |
+
+> **简单来说：** 日常烧录只需 `firmware.bin`；需要调试崩溃问题时才用到 `firmware.elf`。
+
+## 使用其他工具烧录固件
+
+除了 PlatformIO，您也可以使用以下工具将编译好的 `firmware.bin` 烧录到 ESP32-C3 开发板。
+
+### 方式一：esptool.py（推荐）
+
+[esptool](https://github.com/espressif/esptool) 是 Espressif 官方命令行烧录工具，PlatformIO 底层也依赖它。
+
+```bash
+# 安装
+pip install esptool
+
+# 烧录（地址 0x0 是 ESP32-C3 的默认固件起始地址）
+esptool.py --chip esp32c3 --port /dev/ttyUSB0 --baud 460800 \
+  write_flash 0x0 .pio/build/esp32-c3-supermini/firmware.bin
+```
+
+> **Windows 用户：** 端口名通常为 `COM3`、`COM4` 等，可在设备管理器中查看。
+>
+> **macOS 用户：** 端口名通常为 `/dev/cu.usbserial-xxxx` 或 `/dev/cu.usbmodem-xxxx`。
+
+如果烧录失败，可尝试添加 `--before default_reset --after hard_reset` 参数，或按住开发板上的 **BOOT** 按键后重新执行烧录命令。
+
+### 方式二：乐鑫 Flash 下载工具（Windows 图形界面）
+
+1. 从 [Flash 下载工具官网](https://www.espressif.com/en/support/download/other-tools) 下载并解压。
+2. 打开工具，选择 **ESP32-C3** 芯片类型。
+3. 设置参数：
+   - **SPISpeed：** 80MHz
+   - **SPIMode：** QIO
+   - **Flash Size：** 4MB
+4. 在固件栏中加载 `firmware.bin`，地址填 `0x0`。
+5. 选择正确的 COM 端口，点击 **START** 开始烧录。
+
+### 方式三：ESP Web Flasher（浏览器在线烧录）
+
+适用于不想安装任何工具的场景，仅支持 Chrome / Edge 浏览器。
+
+1. 访问 [ESP Web Flasher](https://espressif.github.io/esptool-js/)
+2. 用 USB 连接开发板，点击 **Connect** 并选择串口。
+3. 加载 `firmware.bin`，地址设为 `0x0`，点击 **Program**。
+
+> **注意：** 在线烧录工具要求浏览器支持 Web Serial API（Chrome 89+、Edge 89+）。
+
+### 方式四：esptool-rs / espflash（Rust 实现）
+
+如果您偏好 Rust 工具链，可以使用 [espflash](https://github.com/esp-rs/espflash)：
+
+```bash
+# 安装
+cargo install espflash
+
+# 烧录
+espflash --chip esp32c3 /dev/ttyUSB0 .pio/build/esp32-c3-supermini/firmware.bin
+```
+
+### 进入下载模式
+
+如果烧录工具提示 "Failed to connect"，需要手动进入下载模式：
+
+1. **按住** 开发板上的 **BOOT（GPIO9）** 按键不放。
+2. **短按** 一下 **RST（RESET）** 按键。
+3. **松开** BOOT 按键。
+4. 此时芯片进入下载模式，重新执行烧录命令即可。
+
 ## 许可证
 
 MIT 许可证 – 您可以自由使用、修改和分发本项目。

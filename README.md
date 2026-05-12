@@ -129,6 +129,83 @@ All settings are in `src/config.h`:
 | IR not decoding        | Open the serial monitor (`pio device monitor -b 115200`). If you see `frame captured: 0 edges`, check that the 1838 VCC is 3.3 V and the OUT pin is connected to GPIO 4. If edges are captured but decode fails, ambient IR interference (fluorescent lights) may be the cause. |
 | Partial or missing bytes | Some remotes use extended 16‑bit addresses. The decoder handles both formats; the raw bytes shown will tell you exactly what was received. |
 
+
+## Firmware Files Explained
+
+Building the project produces two firmware files:
+
+| File | Path | Description |
+|------|------|-------------|
+| `firmware.bin` | `.pio/build/esp32-c3-supermini/firmware.bin` | Raw binary firmware image. This is the file you flash onto the ESP32-C3's flash memory — it is the actual program that runs on the chip. |
+| `firmware.elf` | `.pio/build/esp32-c3-supermini/firmware.elf` | ELF binary with full symbol table and debug information. Much larger than the `.bin`. Used for **GDB debugging** and **crash backtrace analysis** (`addr2line`). **Not suitable for normal flashing.** |
+
+> **In short:** Use `firmware.bin` for day-to-day flashing. Only reach for `firmware.elf` when you need to debug a crash.
+
+## Flashing with Other Tools
+
+Besides PlatformIO, you can use any of the following tools to flash `firmware.bin` to the ESP32-C3.
+
+### Option 1: esptool.py (Recommended)
+
+[esptool](https://github.com/espressif/esptool) is Espressif's official command-line flash tool (PlatformIO uses it under the hood).
+
+```bash
+# Install
+pip install esptool
+
+# Flash (0x0 is the default firmware offset for ESP32-C3)
+esptool.py --chip esp32c3 --port /dev/ttyUSB0 --baud 460800 \
+  write_flash 0x0 .pio/build/esp32-c3-supermini/firmware.bin
+```
+
+> **Windows:** The port is usually `COM3`, `COM4`, etc. Check Device Manager.
+>
+> **macOS:** The port is usually `/dev/cu.usbserial-xxxx` or `/dev/cu.usbmodem-xxxx`.
+
+If flashing fails, try adding `--before default_reset --after hard_reset`, or hold the **BOOT** button on the board while running the command.
+
+### Option 2: Espressif Flash Download Tool (Windows GUI)
+
+1. Download from the [official tools page](https://www.espressif.com/en/support/download/other-tools) and extract.
+2. Open the tool, select **ESP32-C3** chip type.
+3. Configure:
+   - **SPISpeed:** 80 MHz
+   - **SPIMode:** QIO
+   - **Flash Size:** 4 MB
+4. Load `firmware.bin` and set the address to `0x0`.
+5. Select the correct COM port, then click **START**.
+
+### Option 3: ESP Web Flasher (In-Browser)
+
+No installation required. Works in Chrome / Edge only.
+
+1. Visit [ESP Web Flasher](https://espressif.github.io/esptool-js/)
+2. Connect the board via USB, click **Connect**, and select the serial port.
+3. Load `firmware.bin`, set address to `0x0`, click **Program**.
+
+> **Note:** Requires a browser with Web Serial API support (Chrome 89+, Edge 89+).
+
+### Option 4: espflash (Rust-based)
+
+If you prefer a Rust toolchain, [espflash](https://github.com/esp-rs/espflash) is a solid alternative:
+
+```bash
+# Install
+cargo install espflash
+
+# Flash
+espflash --chip esp32c3 /dev/ttyUSB0 .pio/build/esp32-c3-supermini/firmware.bin
+```
+
+### Entering Download Mode
+
+If the flash tool reports "Failed to connect", you may need to manually enter download mode:
+
+1. **Press and hold** the **BOOT (GPIO9)** button on the board.
+2. **Briefly press** the **RST (RESET)** button.
+3. **Release** the BOOT button.
+4. The chip is now in download mode — re-run the flash command.
+
 ## License
 
 MIT – feel free to use, modify, and share.
