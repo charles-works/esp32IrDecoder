@@ -2,9 +2,11 @@
 #include "config.h"
 #include "IRDecoder.h"
 #include "DisplayManager.h"
+#include "BLEManager.h"
 
-IRDecoder irDecoder;
+IRDecoder    irDecoder;
 DisplayManager displayManager;
+BLEManager   bleManager;
 
 // NEC wire format is LSB-first per byte; reverse each byte to get
 // the conventional MSB-first representation used by most IR tools.
@@ -19,6 +21,7 @@ void setup() {
     Serial.begin(115200);
     irDecoder.begin(IR_RECEIVER_PIN);
     displayManager.begin();
+    bleManager.begin();
     displayManager.showWaiting();
     Serial.println("Ready. Waiting for NEC IR signal...");
 }
@@ -35,6 +38,7 @@ void loop() {
 
         Serial.printf("NEC: A:%02X %02X  C:%02X %02X\n", addr, addrInv, cmd, cmdInv);
         displayManager.showCode(addr, addrInv, cmd, cmdInv);
+        bleManager.sendIRCode(addr, addrInv, cmd, cmdInv);
         irDecoder.resume();
     }
 
