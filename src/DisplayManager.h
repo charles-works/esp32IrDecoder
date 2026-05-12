@@ -11,10 +11,9 @@ public:
     bool isShowingCode();
 
 private:
-    // HW I2C constructor: (rotation, reset, SCL, SDA)
     U8G2_SSD1315_128X64_NONAME_F_HW_I2C u8g2 = U8G2_SSD1315_128X64_NONAME_F_HW_I2C(
-        U8G2_R0, /* reset=*/ U8X8_PIN_NONE, OLED_SCL, OLED_SDA);
+        U8G2_R0, /* reset=*/ U8X8_PIN_NONE);
 
-    bool     showing      = false;
+    bool          showing      = false;
     unsigned long lastShowTime = 0;
 };

@@ -1,8 +1,6 @@
 #include "DisplayManager.h"
-#include <Wire.h>
 
 void DisplayManager::begin() {
-    Wire.begin(OLED_SDA, OLED_SCL);
     u8g2.setI2CAddress(OLED_ADDR << 1);
     u8g2.begin();
     showWaiting();
